@@ -1,0 +1,11 @@
+{
+  "name": "steeveaukingso",
+  "owner": { "name": "Steeve Aukingso" },
+  "plugins": [
+    {
+      "name": "kondukt",
+      "source": "./plugins/kondukt",
+      "description": "Délègue aux sous-agents et choisit le bon modèle Claude (haiku, sonnet, opus, fable) selon la difficulté de la tâche."
+    }
+  ]
+}
