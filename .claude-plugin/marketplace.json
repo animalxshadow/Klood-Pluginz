@@ -1,6 +1,9 @@
 {
   "name": "steeveaukingso",
-  "owner": { "name": "Steeve Aukingso" },
+  "description": "Plugins Claude de Steeve Aukingso (Kreative Monster).",
+  "owner": {
+    "name": "Steeve Aukingso"
+  },
   "plugins": [
     {
       "name": "kondukt",
