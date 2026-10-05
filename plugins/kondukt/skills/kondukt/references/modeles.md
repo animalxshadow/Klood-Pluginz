@@ -1,6 +1,6 @@
 # Modèles Claude : guide de choix
 
-**Dernière vérification : 04/10/2026.** Ne change cette date que si tu as réellement consulté les sources officielles listées en bas.
+**Dernière vérification : 05/10/2026.** Ne change cette date que si tu as réellement consulté les sources officielles listées en bas.
 
 ## Vérification à la première délégation (une fois par conversation)
 - Compare les familles proposées par le paramètre `model` de l'outil Agent, et le nom de ton propre modèle, avec le tableau ci-dessous. Ignore `inherit`, `best`, `default`, `opusplan` et les suffixes comme `[1m]`. Pas de recherche web à cette étape.
