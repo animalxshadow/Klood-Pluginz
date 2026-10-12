@@ -1,6 +1,6 @@
 # Modèles Claude : guide de choix
 
-**Dernière vérification : 05/10/2026.** Ne change cette date que si tu as réellement consulté les sources officielles listées en bas.
+**Dernière vérification : 12/10/2026.** Ne change cette date que si tu as réellement consulté les sources officielles listées en bas.
 
 ## Vérification à la première délégation (une fois par conversation)
 - Compare les familles proposées par le paramètre `model` de l'outil Agent, et le nom de ton propre modèle, avec le tableau ci-dessous. Ignore `inherit`, `best`, `default`, `opusplan` et les suffixes comme `[1m]`. Pas de recherche web à cette étape.
@@ -12,19 +12,19 @@
 
 | Famille | Alias (`model`) | Version actuelle | ID API | Prix entrée / sortie (par million de tokens) | Contexte | Effort dans Claude Code | Vitesse |
 |---|---|---|---|---|---|---|---|
-| Haiku | `haiku` | Haiku 4.5 | `claude-haiku-4-5-20251001` (alias `claude-haiku-4-5`) | 1 $ / 5 $ | 200K | non réglable | Très rapide |
+| Haiku | `haiku` | Haiku 5.5 | `claude-haiku-5-5` | à partir de 0,10 $ / 0,50 $ (plus cher au-delà de 100K tokens de prompt, tarif exact non vérifié) | 1M | moyen par défaut | Très rapide |
 | Sonnet | `sonnet` | Sonnet 5.5 | `claude-sonnet-5-5` | 2 $ / 10 $ | jusqu'à 1M | moyen par défaut | Rapide |
 | Opus | `opus` | Opus 5.5 | `claude-opus-5-5` | 4 $ / 20 $ | jusqu'à 1M | moyen par défaut | Plus lent |
 | Fable | `fable` | Fable 5.1 | `claude-fable-5-1` | 10 $ / 50 $ | jusqu'à 1M | élevé par défaut | Lent |
 
-Niveaux d'effort disponibles sur Sonnet, Opus et Fable : low, medium, high, xhigh, max.
+Niveaux d'effort disponibles sur Haiku, Sonnet, Opus et Fable : low, medium, high, xhigh, max.
 Dans Claude Code, utilise l'alias : il pointe toujours vers la dernière version de la famille.
 
-**Retrait :** Haiku 4.5 peut être retiré à partir du 15/10/2026 (doc officielle). S'il disparaît sans successeur, utilise `sonnet` à sa place et propose à l'utilisateur de changer `model: haiku` dans eclaireur.md.
+**Retrait :** Haiku 5.5 ne sera pas retiré avant le 07/10/2027 (doc officielle). Haiku 4.5 est passé en modèle ancien (« legacy »), encore disponible. Si `haiku` disparaît sans successeur, utilise `sonnet` à sa place et propose à l'utilisateur de changer `model: haiku` dans eclaireur.md.
 
 ## Profil et bonne utilisation de chaque modèle
 
-**Haiku 4.5** : le plus rapide, mais d'une génération plus ancienne et moins fiable dès qu'il faut interpréter. Pur mécanique en volume uniquement. Ne lui donne pas plus d'environ 100K tokens à lire : découpe ou passe à sonnet. Connaissances arrêtées à février 2025 : ne lui fais pas juger si une API ou une version est à jour.
+**Haiku 5.5** : le plus rapide ; la doc le destine aux tâches en volume sensibles à la latence (classification, extraction, routage). Pur mécanique en volume. Contexte de 1M tokens, réflexion adaptative, effort réglable (moyen par défaut), connaissances jusqu'en juin 2026. Prix plus élevé au-delà de 100K tokens de prompt. Le skill limite encore ses lectures à environ 100K tokens (arbre de décision et `SKILL.md`, règle inchangée en attendant la décision de Steeve) : au-delà, découpe ou passe à sonnet.
 
 **Sonnet 5.5** : vitesse et compétence pour le code, les agents et le travail courant. Le choix par défaut dès qu'il faut comprendre quelque chose.
 
