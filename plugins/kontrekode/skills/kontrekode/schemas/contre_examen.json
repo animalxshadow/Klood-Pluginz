@@ -1,0 +1,109 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "avis",
+    "oublis",
+    "limites"
+  ],
+  "properties": {
+    "avis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "decision",
+          "preuve"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "CONFIRME",
+              "REFUTE",
+              "INCERTAIN"
+            ]
+          },
+          "preuve": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "oublis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "gravite",
+          "fichier",
+          "ligne",
+          "titre",
+          "preuve",
+          "correction",
+          "confiance"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifiant court et stable, ex. C1, X3"
+          },
+          "gravite": {
+            "type": "string",
+            "enum": [
+              "critique",
+              "haute",
+              "moyenne",
+              "basse"
+            ]
+          },
+          "fichier": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Chemin relatif au dépôt, null si transversal"
+          },
+          "ligne": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "titre": {
+            "type": "string"
+          },
+          "preuve": {
+            "type": "string",
+            "description": "Ce que tu as lu ou exécuté qui prouve le constat : extrait, commande et sortie, scénario précis"
+          },
+          "correction": {
+            "type": "string",
+            "description": "Correction proposée, concrète"
+          },
+          "confiance": {
+            "type": "string",
+            "enum": [
+              "certaine",
+              "probable",
+              "a_verifier"
+            ]
+          }
+        }
+      }
+    },
+    "limites": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "verdict",
+    "constats",
+    "couverture",
+    "limites"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "APPROUVE",
+        "A_REVOIR",
+        "BLOQUE"
+      ]
+    },
+    "constats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "gravite",
+          "fichier",
+          "ligne",
+          "titre",
+          "preuve",
+          "correction",
+          "confiance"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifiant court et stable, ex. C1, X3"
+          },
+          "gravite": {
+            "type": "string",
+            "enum": [
+              "critique",
+              "haute",
+              "moyenne",
+              "basse"
+            ]
+          },
+          "fichier": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Chemin relatif au dépôt, null si transversal"
+          },
+          "ligne": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "titre": {
+            "type": "string"
+          },
+          "preuve": {
+            "type": "string",
+            "description": "Ce que tu as lu ou exécuté qui prouve le constat : extrait, commande et sortie, scénario précis"
+          },
+          "correction": {
+            "type": "string",
+            "description": "Correction proposée, concrète"
+          },
+          "confiance": {
+            "type": "string",
+            "enum": [
+              "certaine",
+              "probable",
+              "a_verifier"
+            ]
+          }
+        }
+      }
+    },
+    "couverture": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "limites": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

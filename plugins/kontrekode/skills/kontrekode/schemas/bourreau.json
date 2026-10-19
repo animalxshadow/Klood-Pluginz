@@ -1,0 +1,56 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "statut",
+    "tests",
+    "commande_execution",
+    "limites"
+  ],
+  "properties": {
+    "statut": {
+      "type": "string",
+      "enum": [
+        "TESTS_ECRITS",
+        "AUCUNE_FAILLE_TROUVEE",
+        "BLOQUE"
+      ]
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fichier",
+          "nom",
+          "cible",
+          "defaillance_attendue"
+        ],
+        "properties": {
+          "fichier": {
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "cible": {
+            "type": "string"
+          },
+          "defaillance_attendue": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "commande_execution": {
+      "type": "string"
+    },
+    "limites": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

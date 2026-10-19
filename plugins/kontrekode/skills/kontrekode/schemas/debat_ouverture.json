@@ -1,0 +1,55 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "position",
+    "arguments",
+    "risques",
+    "ce_qui_me_ferait_changer_d_avis",
+    "confiance"
+  ],
+  "properties": {
+    "position": {
+      "type": "string"
+    },
+    "arguments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "affirmation",
+          "preuve"
+        ],
+        "properties": {
+          "affirmation": {
+            "type": "string"
+          },
+          "preuve": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "risques": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ce_qui_me_ferait_changer_d_avis": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "confiance": {
+      "type": "string",
+      "enum": [
+        "forte",
+        "moyenne",
+        "faible"
+      ]
+    }
+  }
+}

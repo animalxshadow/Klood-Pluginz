@@ -1,0 +1,47 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "concessions",
+    "refutations",
+    "noeud_du_desaccord",
+    "position_finale",
+    "changement_de_position"
+  ],
+  "properties": {
+    "concessions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "refutations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cible",
+          "reponse"
+        ],
+        "properties": {
+          "cible": {
+            "type": "string"
+          },
+          "reponse": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "noeud_du_desaccord": {
+      "type": "string"
+    },
+    "position_finale": {
+      "type": "string"
+    },
+    "changement_de_position": {
+      "type": "boolean"
+    }
+  }
+}

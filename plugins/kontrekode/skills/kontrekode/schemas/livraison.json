@@ -1,0 +1,98 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "statut",
+    "resume",
+    "fichiers_modifies",
+    "verifications",
+    "reponses",
+    "hypotheses",
+    "questions"
+  ],
+  "properties": {
+    "statut": {
+      "type": "string",
+      "enum": [
+        "TERMINE",
+        "PARTIEL",
+        "BLOQUE"
+      ]
+    },
+    "resume": {
+      "type": "string"
+    },
+    "fichiers_modifies": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verifications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "commande",
+          "code_sortie",
+          "observe"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string"
+          },
+          "code_sortie": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "observe": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "reponses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "statut",
+          "explication"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "statut": {
+            "type": "string",
+            "enum": [
+              "RESOLU",
+              "PARTIEL",
+              "CONTESTE"
+            ]
+          },
+          "explication": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

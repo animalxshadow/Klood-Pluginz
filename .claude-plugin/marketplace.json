@@ -9,6 +9,11 @@
       "name": "kondukt",
       "source": "./plugins/kondukt",
       "description": "Délègue aux sous-agents et choisit le bon modèle Claude (haiku, sonnet, opus, fable) selon la difficulté de la tâche."
+    },
+    {
+      "name": "kontrekode",
+      "source": "./plugins/kontrekode",
+      "description": "Claude et Codex qui se contredisent pour trouver le vrai : code croisé (Codex écrit dans une copie isolée, Claude relit), audit double aveugle, débat de décision, tests bourreaux. Preuve par l’exécution, jamais de faux consensus."
     }
   ]
 }
