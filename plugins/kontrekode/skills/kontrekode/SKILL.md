@@ -161,6 +161,14 @@ Un compte rendu court, dans la langue de la personne :
   protection contre une falsification délibérée : quiconque peut écrire dans le dossier de la session peut
   tout recalculer. Seule une empreinte de tête notée ailleurs (`KK etat`, champ `journal.tete`) fait preuve
   face à un tiers.
+- Plusieurs sessions `code` sur le même dépôt peuvent tourner en parallèle (copies distinctes), mais
+  intégrer l'une pendant qu'une autre fait tourner Codex modifie le dépôt d'origine : ce tour-là finit en
+  `VIOLATION` (« le dépôt d'origine a changé »). C'est le garde-fou qui marche, pas Codex qui écrit :
+  vérifier que le changement est bien sa propre intégration, puis continuer. Mieux : intégrer quand aucun
+  tour de Codex ne tourne sur ce dépôt.
+- La synthèse d'audit ne rapproche deux constats que s'ils citent le même fichier à trois lignes près.
+  Deux auditeurs qui décrivent le même défaut à des lignes éloignées apparaissent séparés : relire la
+  synthèse et regrouper à la main les doublons évidents.
 - Deux modèles d'accord peuvent avoir tort ensemble. La preuve par l'exécution reste le seul juge.
 
 ---

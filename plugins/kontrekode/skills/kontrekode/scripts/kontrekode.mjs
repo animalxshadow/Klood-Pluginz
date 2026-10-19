@@ -12,7 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.3.2';
+const VERSION = '1.3.3';
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 const DOSSIER_SCHEMAS = path.join(ICI, '..', 'schemas');
 const HOME = path.resolve(process.env.KONTREKODE_HOME || path.join(os.homedir(), '.kontrekode'));
@@ -923,7 +923,10 @@ function cmdProuver(a) {
     r = spawnSync('/bin/bash', ['-c', a.cmd], options);
   } else {
     const profil = path.join(d, 'bac-a-sable.sb');
-    const lisibles = [etat.depot, etat.copie].filter(Boolean);
+    // Dépendances reliées (node_modules) : leur cible réelle, même au bout de plusieurs liens, doit
+    // rester lisible, sinon les tests ne trouvent pas leurs paquets.
+    const cibles = (etat.liens || []).map((l) => reel(path.join(etat.depot, l)));
+    const lisibles = [etat.depot, etat.copie, ...cibles].filter(Boolean);
     fs.writeFileSync(profil, profilBacASable({ ecrivable, lisibles, depot: etat.depot, temporaire, reseauLocal: Boolean(a['reseau-local']) }));
     r = spawnSync('/usr/bin/sandbox-exec', ['-f', profil, '/bin/bash', '-c', a.cmd], options);
   }
