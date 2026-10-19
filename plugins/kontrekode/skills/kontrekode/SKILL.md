@@ -50,8 +50,9 @@ Ce que le moteur garantit, par construction et non par consigne :
     en a besoin ;
   - aucun réseau, DNS compris ; la machine locale seulement avec `--reseau-local`, après lecture des tests ;
   - écriture seulement dans la copie et dans un dossier temporaire propre à la session (`TMPDIR`), jamais
-    dans `/tmp` ni dans le dossier temporaire du système ; jamais dans le dépôt d'origine, sauf pour
-    relancer les tests après une intégration acceptée (`--ou depot`). En audit et en débat, personne n'écrit ;
+    dans `/tmp` ni dans le dossier temporaire du système, et jamais dans le dépôt d'origine, y compris
+    après intégration (`--ou depot` relance les tests en lecture seule : ses hooks peuvent vivre dans le
+    dépôt). Un test qui doit écrire dans le dépôt se lance à la main, hors KontreKode ;
   - ni ouverture d'applications ou de liens (`open`, LaunchServices), ni Apple Events, ni trousseau ;
   - lecture du dossier personnel refusée par défaut : seuls la copie, le dépôt et les outils de
     développement (`.nvm`, `.npm`, `.cache`, `.pyenv`, `.cargo`…) sont lisibles. Restent interdits même

@@ -12,7 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.3.1';
+const VERSION = '1.3.2';
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 const DOSSIER_SCHEMAS = path.join(ICI, '..', 'schemas');
 const HOME = path.resolve(process.env.KONTREKODE_HOME || path.join(os.homedir(), '.kontrekode'));
@@ -901,12 +901,12 @@ function cmdProuver(a) {
   if (!sansBac && !bacASableDisponible()) echec('Aucun bac à sable sur ce système. Relance avec --sans-bac-a-sable seulement après avoir lu la commande et les fichiers qu\'elle exécute.');
   controlePrealable();
   const delai = Math.min(Number.parseInt(a.delai || '600', 10) || 600, 3600) * 1000;
-  // Le dépôt d'origine n'est inscriptible que pour relancer les tests après une intégration
-  // acceptée (modes code et bourreau). En audit et en débat, personne n'écrit.
-  const depotInscriptible = ou === etat.depot && Boolean(etat.copie) && etat.integre;
+  // Le dépôt d'origine n'est jamais inscriptible par une commande de prouver, même après intégration :
+  // ses hooks peuvent vivre dans le dépôt lui-même (core.hooksPath), un test pourrait les réécrire.
+  // Après intégration, les tests y tournent donc en lecture seule.
   if (ou === etat.depot && etat.copie && !etat.integre) echec('Avant l\'intégration, les preuves se font dans la copie (sans --ou depot).');
-  const ecrivable = ou === etat.depot ? (depotInscriptible ? etat.depot : null) : ou;
-  const empreinteAvant = depotInscriptible ? null : empreinteDepot(etat.depot);
+  const ecrivable = ou === etat.depot ? null : ou;
+  const empreinteAvant = empreinteDepot(etat.depot);
   const debut = Date.now();
   // Environnement minimal sur liste blanche : aucune clé ni jeton hérité de la session (les tests
   // pourraient les recopier dans la copie, donc dans le correctif). Pas de shell de connexion non plus,
