@@ -12,7 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.3.3';
+const VERSION = '1.3.4';
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 const DOSSIER_SCHEMAS = path.join(ICI, '..', 'schemas');
 const HOME = path.resolve(process.env.KONTREKODE_HOME || path.join(os.homedir(), '.kontrekode'));
@@ -563,6 +563,25 @@ function lierDependances(depot, copie, liste) {
   return liens;
 }
 
+// Cible réelle d'une dépendance reliée, acceptée en lecture par le bac à sable de prouver seulement si
+// elle reste dans le dépôt, ou si c'est un dossier node_modules (dépôt principal d'un worktree).
+// Jamais la racine, le dossier personnel ou un de ses parents, ni un chemin qui touche un secret.
+function cibleLisible(cible, depot) {
+  const reelle = reel(cible);
+  const racineDepot = reel(depot);
+  const maison = reel(os.homedir());
+  let st;
+  try { st = fs.statSync(reelle); } catch { return null; }
+  if (!st.isDirectory()) return null;
+  if (reelle === '/' || maison === reelle || maison.startsWith(reelle + path.sep)) return null;
+  for (const s of SECRETS) {
+    const interdit = reel(path.join(os.homedir(), s));
+    if (reelle === interdit || reelle.startsWith(interdit + path.sep) || interdit.startsWith(reelle + path.sep)) return null;
+  }
+  if (reelle === racineDepot || reelle.startsWith(racineDepot + path.sep) || path.basename(reelle) === 'node_modules') return reelle;
+  return null;
+}
+
 function cmdOuvrir(a) {
   const mode = a.mode;
   if (!MODES.includes(mode)) echec(`Mode inconnu. Modes : ${MODES.join(', ')}.`);
@@ -602,6 +621,10 @@ function cmdOuvrir(a) {
     etat.gitmodules = fs.existsSync(path.join(copie, '.gitmodules')) ? fs.readFileSync(path.join(copie, '.gitmodules'), 'utf8') : null;
     etat.git_dir = git(copie, ['rev-parse', '--absolute-git-dir']).stdout.trim();
     etat.liens = lierDependances(depot, copie, typeof a.lier === 'string' ? a.lier : null);
+    // Cibles réelles validées une fois, à l'ouverture ; prouver les revérifie avant usage.
+    etat.liens_cibles = etat.liens.map((l) => cibleLisible(path.join(depot, l), depot)).filter(Boolean);
+    const refusees = etat.liens.length - etat.liens_cibles.length;
+    if (refusees) avertissements.push(`${refusees} dépendance(s) reliée(s) pointent hors du dépôt vers un emplacement non sûr : illisibles pour les tests de prouver.`);
   }
   journaliser(d, 'ouverture', { mode, depot, titre: etat.titre, copie: etat.copie, reference: etat.reference || null, version: VERSION });
   ecrireEtat(d, etat);
@@ -925,7 +948,8 @@ function cmdProuver(a) {
     const profil = path.join(d, 'bac-a-sable.sb');
     // Dépendances reliées (node_modules) : leur cible réelle, même au bout de plusieurs liens, doit
     // rester lisible, sinon les tests ne trouvent pas leurs paquets.
-    const cibles = (etat.liens || []).map((l) => reel(path.join(etat.depot, l)));
+    // Seules les cibles validées à l'ouverture, et toujours sûres maintenant, deviennent lisibles.
+    const cibles = (etat.liens_cibles || []).filter((c) => cibleLisible(c, etat.depot) === c);
     const lisibles = [etat.depot, etat.copie, ...cibles].filter(Boolean);
     fs.writeFileSync(profil, profilBacASable({ ecrivable, lisibles, depot: etat.depot, temporaire, reseauLocal: Boolean(a['reseau-local']) }));
     r = spawnSync('/usr/bin/sandbox-exec', ['-f', profil, '/bin/bash', '-c', a.cmd], options);

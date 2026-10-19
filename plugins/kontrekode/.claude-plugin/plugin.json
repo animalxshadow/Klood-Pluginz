@@ -1,6 +1,6 @@
 {
   "name": "kontrekode",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "KontreKode : Claude et Codex qui se contredisent pour trouver le vrai. Code croisé (Codex écrit dans une copie isolée, Claude relit), audit double aveugle, débat de décision, tests bourreaux. Preuve par l'exécution, jamais de faux consensus.",
   "author": { "name": "Steeve Aukingso", "url": "https://steeveaukingso.com" },
   "homepage": "https://kreativemonster.com",

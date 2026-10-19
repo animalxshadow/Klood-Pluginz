@@ -673,6 +673,24 @@ test('diff signale les fichiers qui s\'exécutent tout seuls (scripts de paquet,
   } finally { b.nettoyer(); }
 });
 
+test('une dépendance reliée qui pointe vers le dossier personnel n\'est jamais rendue lisible', () => {
+  const b = bac();
+  try {
+    const maison = path.join(b.racine, 'maison');
+    fs.mkdirSync(path.join(maison, 'projet-ailleurs', 'node_modules'), { recursive: true });
+    fs.symlinkSync(maison, path.join(b.depot, 'node_modules'));
+    fs.symlinkSync(path.join(maison, 'projet-ailleurs', 'node_modules'), path.join(b.depot, 'deps'));
+    // Comme de vrais node_modules : ignorés par git, donc reliés et non recopiés.
+    fs.writeFileSync(path.join(b.depot, '.gitignore'), 'node_modules\ndeps\n');
+    spawnSync('git', ['add', '.gitignore'], { cwd: b.depot });
+    spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'ignore'], { cwd: b.depot });
+    const o = b.kk(['ouvrir', '--mode', 'bourreau', '--lier', 'node_modules,deps'], { HOME: maison }).json;
+    const etat = JSON.parse(fs.readFileSync(path.join(o.dossier, 'etat.json'), 'utf8'));
+    assert.deepEqual(etat.liens_cibles, [fs.realpathSync(path.join(maison, 'projet-ailleurs', 'node_modules'))]);
+    assert.ok(o.avertissements.some((a) => /non sûr/.test(a)));
+  } finally { b.nettoyer(); }
+});
+
 test('lecture des scellés par Codex détectée : VIOLATION', () => {
   const b = bac();
   try {
