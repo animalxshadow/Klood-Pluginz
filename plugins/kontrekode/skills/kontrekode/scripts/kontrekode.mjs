@@ -6,13 +6,13 @@
 // Conçu par Steeve Aukingso · https://steeveaukingso.com
 // Kreative Monster · https://kreativemonster.com
 import { spawn, spawnSync } from 'node:child_process';
-import { createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 const DOSSIER_SCHEMAS = path.join(ICI, '..', 'schemas');
 const HOME = path.resolve(process.env.KONTREKODE_HOME || path.join(os.homedir(), '.kontrekode'));
@@ -32,7 +32,12 @@ const LIMITE_COPIE = 50 * 1024 * 1024;
 // Messages d'épuisement des fournisseurs, pas « quota disque » ni un numéro de ligne 429.
 const QUOTA = /usage limit|rate.?limit(ed| reached| exceeded)?\b|insufficient_quota|exceeded your (current )?quota|too many requests/i;
 // Dossiers d'identifiants que les tests exécutés par prouver ne doivent jamais lire.
-const SECRETS = ['.codex', '.ssh', '.aws', '.gnupg', '.config/gh', '.docker', '.kube', '.netrc', '.npmrc', '.pypirc', '.claude/secrets', '.claude.json', 'Library/Keychains', 'Library/Cookies'];
+// Ils restent interdits même s'ils se trouvent sous un dossier autorisé.
+const SECRETS = ['.codex', '.ssh', '.aws', '.azure', '.gnupg', '.config', '.git-credentials', '.docker', '.kube', '.netrc', '.npmrc',
+  '.pypirc', '.claude', '.claude.json', '.kontrekode/runs', 'Library/Keychains', 'Library/Cookies', 'Library/Application Support'];
+// Seuls dossiers du dossier personnel lisibles par les tests : chaînes d'outils et caches de paquets.
+const OUTILS_LISIBLES = ['.nvm', '.npm', '.node-gyp', '.cache', '.pnpm-store', 'Library/pnpm', '.yarn', '.bun', '.deno', '.volta', '.fnm',
+  '.pyenv', '.local', 'Library/Python', 'Library/Caches', '.cargo', '.rustup', 'go', '.gradle', '.m2', '.rbenv', '.gem', '.asdf', '.sdkman', '.swiftpm'];
 
 // ---------- utilitaires ----------
 
@@ -68,11 +73,14 @@ function git(cwd, args, opts = {}) {
 
 // Empreinte de l'état d'un dépôt : commit, statut, diff, contenu des fichiers non suivis,
 // fichiers ignorés (taille et date, dossiers repliés) et sous-modules.
-function empreinteDepot(cwd) {
+// Pour la copie (inscriptible par Codex), passer son état : git y tourne alors durci (gitCopie).
+function empreinteDepot(cwd, etatCopie = null) {
   const h = createHash('sha256');
-  const g = (args) => git(cwd, args, { tolerer: true }).stdout || '';
+  const g = etatCopie
+    ? (args) => gitCopie(etatCopie, args, { tolerer: true }).stdout || ''
+    : (args) => git(cwd, args, { tolerer: true }).stdout || '';
   h.update(g(['rev-parse', 'HEAD']) + '\0');
-  h.update(g(['status', '--porcelain=v1', '-uall', '--ignore-submodules=none']) + '\0');
+  h.update(g(['status', '--porcelain=v1', '-uall', etatCopie ? '--ignore-submodules=all' : '--ignore-submodules=none']) + '\0');
   h.update(g(['diff', 'HEAD', '--binary']) + '\0');
   for (const rel of g(['ls-files', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean)) {
     h.update(rel + '\0');
@@ -89,10 +97,83 @@ function empreinteDepot(cwd) {
   for (const rel of ignores) {
     try { const st = fs.lstatSync(path.join(cwd, rel)); h.update(`${rel}:${st.size}:${st.mtimeMs}\0`); } catch { h.update(`${rel}:absent\0`); }
   }
-  if (fs.existsSync(path.join(cwd, '.gitmodules'))) {
+  if (!etatCopie && fs.existsSync(path.join(cwd, '.gitmodules'))) {
     h.update(g(['submodule', 'foreach', '--recursive', '--quiet', 'git status --porcelain=v1 -uall; git diff HEAD --binary']));
   }
   return h.digest('hex');
+}
+
+// ---------- git dans la copie, durci ----------
+// Codex peut écrire dans la copie : il pourrait y remplacer le fichier .git par un faux dépôt dont la
+// configuration exécute un script (core.fsmonitor, hooks, sous-modules). Tout appel git dans la copie
+// vérifie donc d'abord que .git est intact et qu'aucun dépôt n'y est imbriqué, puis tourne avec un
+// GIT_DIR fixé à l'ouverture et une configuration neutralisée.
+const GIT_DURCI = ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', '-c', 'protocol.file.allow=never',
+  '-c', 'submodule.recurse=false', '-c', 'core.untrackedCache=false', '-c', 'diff.external=', '-c', 'core.pager=cat'];
+
+function verifierCopie(etat) {
+  const f = path.join(etat.copie, '.git');
+  let st;
+  try { st = fs.lstatSync(f); } catch { throw new Error('VIOLATION : le fichier .git de la copie a disparu. KontreKode refuse d\'y lancer git.'); }
+  if (!st.isFile() || fs.readFileSync(f, 'utf8') !== etat.git_fichier) throw new Error('VIOLATION : le fichier .git de la copie a été modifié. KontreKode refuse d\'y lancer git.');
+  const imbriques = [];
+  const parcourir = (rel, profondeur) => {
+    if (profondeur > 25 || imbriques.length) return;
+    let entrees;
+    try { entrees = fs.readdirSync(path.join(etat.copie, rel), { withFileTypes: true }); } catch { return; }
+    for (const e of entrees) {
+      const sousRel = path.join(rel, e.name);
+      if (rel && (e.name === '.git' || e.name === '.gitmodules')) { imbriques.push(sousRel); return; }
+      if (!rel && e.name === '.gitmodules') {
+        let contenu = null;
+        try { contenu = fs.readFileSync(path.join(etat.copie, '.gitmodules'), 'utf8'); } catch { /* lien ou dossier */ }
+        if (contenu !== (etat.gitmodules ?? null)) { imbriques.push(sousRel); return; }
+      }
+      if (e.isDirectory() && !(rel === '' && e.name === '.git')) parcourir(sousRel, profondeur + 1);
+    }
+  };
+  parcourir('', 0);
+  if (imbriques.length) throw new Error(`VIOLATION : dépôt git ou sous-module ajouté dans la copie (${imbriques[0]}). KontreKode refuse d'y lancer git.`);
+}
+
+function gitCopie(etat, args, opts = {}) {
+  verifierCopie(etat);
+  const env = { ...process.env, GIT_DIR: etat.git_dir, GIT_WORK_TREE: etat.copie, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' };
+  return git(etat.copie, [...GIT_DURCI, ...args], { ...opts, env });
+}
+
+// ---------- scellés voilés pendant les tours de Codex ----------
+// Chiffrement AES-256-GCM en place, clé aléatoire gardée en mémoire seulement. Rétabli à la fin du
+// tour, et aussi sur interruption (SIGINT, SIGTERM). Un arrêt brutal (SIGKILL) en plein tour laisse les
+// scellés chiffrés : leur empreinte reste au journal, mais il faut rouvrir une session.
+function voiler(etat) {
+  const cle = randomBytes(32);
+  const voiles = [];
+  for (const s of Object.values(etat.scelles || {})) {
+    if (!s?.fichier || !fs.existsSync(s.fichier)) continue;
+    const iv = randomBytes(12);
+    const c = createCipheriv('aes-256-gcm', cle, iv);
+    const chiffre = Buffer.concat([c.update(fs.readFileSync(s.fichier)), c.final()]);
+    fs.writeFileSync(`${s.fichier}.voile`, Buffer.concat([iv, c.getAuthTag(), chiffre]));
+    fs.rmSync(s.fichier);
+    voiles.push(s.fichier);
+  }
+  let fait = false;
+  const devoiler = () => {
+    if (fait) return;
+    fait = true;
+    for (const f of voiles) {
+      const brut = fs.readFileSync(`${f}.voile`);
+      const d = createDecipheriv('aes-256-gcm', cle, brut.subarray(0, 12));
+      d.setAuthTag(brut.subarray(12, 28));
+      const tmp = `${f}.tmp`;
+      fs.writeFileSync(tmp, Buffer.concat([d.update(brut.subarray(28)), d.final()]));
+      fs.renameSync(tmp, f);
+      fs.rmSync(`${f}.voile`);
+    }
+  };
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.once(sig, () => { try { devoiler(); } finally { process.exit(130); } });
+  return devoiler;
 }
 
 function horodatageId() {
@@ -511,6 +592,10 @@ function cmdOuvrir(a) {
     git(copie, ['-c', 'user.name=KontreKode', '-c', 'user.email=kontrekode@localhost', 'commit', '-q', '--allow-empty', '--no-verify', '-m', 'KontreKode : point de départ']);
     etat.copie = copie;
     etat.reference = git(copie, ['rev-parse', 'HEAD']).stdout.trim();
+    // Pointeur .git et dossier git de la copie, figés avant que Codex n'y touche.
+    etat.git_fichier = fs.readFileSync(path.join(copie, '.git'), 'utf8');
+    etat.gitmodules = fs.existsSync(path.join(copie, '.gitmodules')) ? fs.readFileSync(path.join(copie, '.gitmodules'), 'utf8') : null;
+    etat.git_dir = git(copie, ['rev-parse', '--absolute-git-dir']).stdout.trim();
     etat.liens = lierDependances(depot, copie, typeof a.lier === 'string' ? a.lier : null);
   }
   journaliser(d, 'ouverture', { mode, depot, titre: etat.titre, copie: etat.copie, reference: etat.reference || null, version: VERSION });
@@ -540,6 +625,8 @@ function cmdSceller(a) {
   const n = fs.readdirSync(d).filter((f) => f.startsWith('scelle-')).length + 1;
   const fichier = path.join(d, `scelle-${String(n).padStart(2, '0')}-${etape}.json`);
   fs.writeFileSync(fichier, JSON.stringify(r, null, 2));
+  // Le brouillon en clair ne doit pas traîner là où Codex pourrait le lire : le scellé fait foi.
+  if (!a.garder) fs.rmSync(path.resolve(a.fichier), { force: true });
   const empreinte = sha(JSON.stringify(r));
   const ids = (r.constats || []).map((c) => c.id);
   journaliser(d, 'scelle', { etape, empreinte, ids, verdict: r.verdict || null });
@@ -611,7 +698,10 @@ async function cmdCodex(a) {
   };
 
   const empreinteAvant = empreinteDepot(etat.depot);
-  const copieAvant = etat.copie ? empreinteDepot(etat.copie) : null;
+  const copieAvant = etat.copie ? empreinteDepot(etat.copie, etat) : null;
+  // Les scellés de Claude sont chiffrés pendant le tour, avec une clé qui n'existe qu'en mémoire :
+  // Codex, qui peut lire tout le disque, ne peut pas les lire. Ils sont rétablis dès la fin du tour.
+  const devoiler = voiler(etat);
   const essais = [];
   let sessionId = session;
   let reponse = null;
@@ -654,6 +744,8 @@ async function cmdCodex(a) {
     }
   } catch (err) {
     erreursInternes.push(`erreur interne de KontreKode : ${err.message || err}`);
+  } finally {
+    devoiler();
   }
 
   // Le bilan cumule tous les essais : une correction n'efface jamais ce qui s'est passé avant.
@@ -671,7 +763,12 @@ async function cmdCodex(a) {
   if (mcp > 0) violations.push(`${mcp} appel(s) d'outil MCP malgré l'isolation`);
   if (lectures > 0) violations.push(`${lectures} commande(s) de Codex visant les dossiers de KontreKode (scellés, journaux)`);
   if (empreinteDepot(etat.depot) !== empreinteAvant) violations.push('le dépôt d\'origine a changé pendant le tour de Codex');
-  if (!ecriture && etat.copie && empreinteDepot(etat.copie) !== copieAvant) violations.push('la copie a changé alors que Codex était en lecture seule');
+  if (etat.copie) {
+    try {
+      if (!ecriture && empreinteDepot(etat.copie, etat) !== copieAvant) violations.push('la copie a changé alors que Codex était en lecture seule');
+      else verifierCopie(etat);
+    } catch (err) { violations.push(String(err.message || err)); }
+  }
   if (violations.length) statut = 'VIOLATION';
   const jetons = essais.reduce((acc, r) => {
     for (const [k, v] of Object.entries(r.jetons || {})) if (typeof v === 'number') acc[k] = (acc[k] || 0) + v;
@@ -701,9 +798,25 @@ async function cmdCodex(a) {
 
 // Correctif de Codex, sans les liens vers les dépendances que KontreKode a posés lui-même.
 function patchCopie(etat) {
-  git(etat.copie, ['add', '-A']);
-  for (const lien of etat.liens || []) git(etat.copie, ['rm', '-r', '-q', '--cached', '--ignore-unmatch', '--', lien], { tolerer: true });
-  return git(etat.copie, ['diff', '--cached', '--binary', etat.reference]).stdout;
+  gitCopie(etat, ['add', '-A']);
+  for (const lien of etat.liens || []) gitCopie(etat, ['rm', '-r', '-q', '--cached', '--ignore-unmatch', '--', lien], { tolerer: true });
+  return gitCopie(etat, ['diff', '--cached', '--binary', '--no-ext-diff', '--no-textconv', etat.reference]).stdout;
+}
+
+// Changements qui méritent une attention particulière à la relecture : ce qui s'exécute tout seul chez
+// la personne (hooks, CI, scripts de paquet) et ce qui est refusé à l'intégration (sous-modules).
+const SENSIBLES = /^(\.githooks\/|\.husky\/|\.github\/workflows\/|\.gitlab-ci|\.gitattributes$|\.envrc$)|(^|\/)(package\.json|Makefile|\.npmrc|setup\.py|pyproject\.toml|Gemfile|Cargo\.toml)$/;
+function analyserPatch(etat) {
+  const brut = gitCopie(etat, ['diff', '--cached', '--raw', '-z', '--no-renames', etat.reference]).stdout.split('\0').filter(Boolean);
+  const sensibles = [];
+  const interdits = [];
+  for (let i = 0; i + 1 < brut.length; i += 2) {
+    const [, modeAvant, modeApres] = brut[i].match(/^:(\d+) (\d+)/) || [];
+    const chemin = brut[i + 1];
+    if (modeAvant === '160000' || modeApres === '160000' || chemin === '.gitmodules') interdits.push(chemin);
+    else if (modeApres === '120000' || SENSIBLES.test(chemin)) sensibles.push(chemin);
+  }
+  return { sensibles, interdits };
 }
 
 function cmdDiff(a) {
@@ -712,14 +825,19 @@ function cmdDiff(a) {
   const etat = lireEtat(d);
   if (!etat.copie) echec('Pas de copie isolée dans ce mode.');
   const patch = patchCopie(etat);
-  const stat = git(etat.copie, ['diff', '--cached', '--stat', etat.reference]).stdout.trim();
+  const stat = gitCopie(etat, ['diff', '--cached', '--stat', '--no-ext-diff', etat.reference]).stdout.trim();
+  const { sensibles, interdits } = analyserPatch(etat);
   const fichier = path.join(d, 'codex.patch');
   fs.writeFileSync(fichier, patch);
   const empreinte = sha(patch);
-  journaliser(d, 'diff', { empreinte, octets: Buffer.byteLength(patch) });
+  journaliser(d, 'diff', { empreinte, octets: Buffer.byteLength(patch), sensibles, interdits });
   etat.dernier_diff = empreinte;
   ecrireEtat(d, etat);
-  sortir({ ok: true, vide: !patch, fichier, empreinte, stat });
+  sortir({
+    ok: true, vide: !patch, fichier, empreinte, stat, sensibles, interdits,
+    attention: sensibles.length ? 'Fichiers qui s\'exécutent tout seuls chez la personne (hooks, CI, scripts, liens) : à relire ligne à ligne.' : undefined,
+    refus: interdits.length ? 'Sous-modules ou .gitmodules modifiés : l\'intégration sera refusée.' : undefined,
+  });
 }
 
 function bacASableDisponible() {
@@ -734,9 +852,15 @@ const sous = (p) => `(subpath ${JSON.stringify(reel(p))})`;
 // - aucun réseau, résolution DNS comprise (machine locale seulement avec --reseau-local) ;
 // - écriture dans les dossiers temporaires et dans le dossier visé seulement, jamais dans le dépôt
 //   d'origine quand on travaille dans la copie ou en lecture seule (audit, débat).
-function profilBacASable({ ecrivable, depot, temporaire, reseauLocal }) {
+function profilBacASable({ ecrivable, lisibles, depot, temporaire, reseauLocal }) {
   const maison = os.homedir();
-  const secrets = [...SECRETS.map((s) => path.join(maison, s)), path.join(maison, 'Library/Application Support'), RUNS].map(sous).join(' ');
+  // Lecture du dossier personnel refusée par défaut (contenu des fichiers ; la traversée des chemins
+  // reste permise), sauf les outils de développement et les dossiers de travail de la session.
+  const outils = OUTILS_LISIBLES.map((s) => path.join(maison, s));
+  const permis = String(process.env.KONTREKODE_LECTURE_PERMISE || '').split(',').map((s) => s.trim()).filter((s) => path.isAbsolute(s));
+  const lecture = [...outils, ...lisibles, temporaire, ...permis].map(sous).join(' ');
+  const secrets = [...SECRETS.map((s) => path.join(maison, s)), RUNS].map(sous).join(' ');
+  const gardes = ecrivable ? [path.join(ecrivable, '.git'), path.join(ecrivable, '.gitmodules')].map((p) => `(literal ${JSON.stringify(path.join(reel(path.dirname(p)), path.basename(p)))})`).join(' ') : '';
   return `(version 1)
 (allow default)
 (deny network*)
@@ -744,12 +868,14 @@ ${reseauLocal ? '(allow network* (local ip "localhost:*"))\n(allow network* (rem
 (deny mach-lookup (global-name "com.apple.mDNSResponder") (global-name "com.apple.mDNSResponderHelper")
   (global-name "com.apple.coreservices.launchservicesd") (global-name "com.apple.coreservices.quarantine-resolver"))
 (deny appleevent-send)
-(deny process-exec (literal "/usr/bin/open") (literal "/usr/bin/osascript") (literal "/usr/bin/security"))
-(deny file-read* ${secrets} (regex #"/\\.env($|\\.)"))
+(deny process-exec (literal "/usr/bin/open") (literal "/usr/bin/osascript") (literal "/usr/bin/security") (literal "/bin/launchctl") (literal "/usr/bin/sudo"))
+(deny file-read-data ${sous(maison)})
+(allow file-read-data ${lecture})
+(deny file-read* ${secrets} (regex #"/\\.env($|\\.)") (regex #"/\\.(bash|zsh|python|node_repl|psql|mysql)_?history$"))
 (deny file-write*)
 (allow file-write* ${sous(temporaire)} (literal "/dev/null") (literal "/dev/zero") (regex #"^/dev/tty") (regex #"^/dev/fd/"))
 (deny file-write* ${sous(depot)})
-${ecrivable ? `(allow file-write* ${sous(ecrivable)})` : ''}
+${ecrivable ? `(allow file-write* ${sous(ecrivable)})\n(deny file-write* ${gardes})` : ''}
 `;
 }
 
@@ -785,7 +911,8 @@ function cmdProuver(a) {
     r = spawnSync('/bin/bash', ['-c', a.cmd], options);
   } else {
     const profil = path.join(d, 'bac-a-sable.sb');
-    fs.writeFileSync(profil, profilBacASable({ ecrivable, depot: etat.depot, temporaire, reseauLocal: Boolean(a['reseau-local']) }));
+    const lisibles = [etat.depot, etat.copie].filter(Boolean);
+    fs.writeFileSync(profil, profilBacASable({ ecrivable, lisibles, depot: etat.depot, temporaire, reseauLocal: Boolean(a['reseau-local']) }));
     r = spawnSync('/usr/bin/sandbox-exec', ['-f', profil, '/bin/bash', '-c', a.cmd], options);
   }
   const sortie = ((r.stdout || '') + (r.stderr || '')).slice(-6000);
@@ -835,6 +962,8 @@ function cmdIntegrer(a) {
   if (!patch) echec('Codex n\'a rien modifié : rien à intégrer.');
   // On n'intègre que ce qui a été relu et accepté, pas une version modifiée depuis.
   if (sha(patch) !== etat.empreinte_acceptee) echec('La copie a changé depuis l\'acceptation : rien n\'est intégré. Relis à nouveau.');
+  const { interdits } = analyserPatch(etat);
+  if (interdits.length) echec('Intégration refusée : le correctif touche des sous-modules ou .gitmodules.', { interdits });
   const fichier = path.join(d, 'integre.patch');
   fs.writeFileSync(fichier, patch);
   // Vérification d'abord, application ensuite : jamais de fusion à trois voies qui laisserait

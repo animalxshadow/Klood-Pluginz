@@ -53,9 +53,21 @@ Ce que le moteur garantit, par construction et non par consigne :
     dans `/tmp` ni dans le dossier temporaire du système ; jamais dans le dépôt d'origine, sauf pour
     relancer les tests après une intégration acceptée (`--ou depot`). En audit et en débat, personne n'écrit ;
   - ni ouverture d'applications ou de liens (`open`, LaunchServices), ni Apple Events, ni trousseau ;
-  - lecture interdite des fichiers `.env` et des données d'applications (`~/Library/Application Support`).
+  - lecture du dossier personnel refusée par défaut : seuls la copie, le dépôt et les outils de
+    développement (`.nvm`, `.npm`, `.cache`, `.pyenv`, `.cargo`…) sont lisibles. Restent interdits même
+    là : les fichiers `.env`, `~/.config`, `~/.claude`, les historiques de shell et les données
+    d'applications. `KONTREKODE_LECTURE_PERMISE=/chemin/absolu,...` ouvre un dossier de plus si un test
+    en a besoin.
 - Un seul appel à la fois par session (verrou). Les processus laissés par Codex sont tués à la fin de son
   tour. Une commande de Codex qui vise les dossiers de KontreKode (scellés, journaux) donne `VIOLATION`.
+- Git ne tourne jamais en confiance dans la copie, où Codex écrit : KontreKode vérifie d'abord que son
+  fichier `.git` est intact et qu'aucun dépôt ni sous-module n'y a été ajouté (sinon `VIOLATION`), puis
+  lance git avec un dossier git fixé à l'ouverture et sans hooks, fsmonitor ni sous-modules.
+- Les scellés de Claude sont chiffrés pendant chaque tour de Codex (clé gardée en mémoire seulement), et
+  `sceller` supprime le brouillon en clair (`--garder` pour le conserver).
+- `diff` signale les fichiers qui s'exécutent tout seuls chez la personne (`sensibles` : hooks, CI,
+  scripts de paquet, liens symboliques), à relire ligne à ligne ; un correctif qui touche des sous-modules
+  est refusé à l'intégration (`interdits`).
 
 ## Démarrer
 
@@ -139,10 +151,10 @@ Un compte rendu court, dans la langue de la personne :
 - La surveillance par empreinte voit le contenu des fichiers suivis et non suivis, et la taille et la date
   de chaque fichier ignoré (au-delà de 300 000 fichiers ignorés, seulement les dossiers). Le premier
   rempart reste le bac à sable de Codex ; l'empreinte est le second.
-- En lecture seule, le bac à sable de Codex lui laisse lire tout le disque, scellés compris. KontreKode ne
-  lui donne pas leur emplacement (aucune variable `KONTREKODE_*` transmise) et signale toute commande qui
-  les vise, mais cette détection est une heuristique : elle attrape une lecture directe, pas un détour
-  délibéré.
+- En lecture seule, le bac à sable de Codex lui laisse lire tout le disque. Les scellés sont chiffrés
+  pendant ses tours et leur brouillon est supprimé, mais les autres fichiers de travail de Claude (ses
+  consignes, ses notes) restent lisibles : ne pas y écrire son propre avis avant de l'avoir scellé. Si le
+  moteur est tué net en plein tour, les scellés restent chiffrés : il faut rouvrir une session.
 - Le journal détecte une ligne modifiée, supprimée ou ajoutée par erreur ou par un outil maladroit, et la
   synthèse exige que le statut de chaque tour concorde entre le journal et `etat.json`. Ce n'est pas une
   protection contre une falsification délibérée : quiconque peut écrire dans le dossier de la session peut

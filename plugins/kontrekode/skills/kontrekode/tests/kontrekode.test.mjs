@@ -616,6 +616,63 @@ test('quota : « Disk quota exceeded » n\'est pas un quota de fournisseur', () 
   } finally { b.nettoyer(); }
 });
 
+// ---------- relecture de sécurité : git dans la copie, scellés, lecture du dossier personnel ----------
+
+for (const scenario of ['pirate-git', 'imbrique', 'gitmodules']) {
+  test(`copie piégée (${scenario}) : VIOLATION, git jamais lancé dessus, aucun script exécuté`, () => {
+    const b = bac();
+    try {
+      const marqueur = path.join(b.racine, 'execute.txt');
+      const o = b.kk(['ouvrir', '--mode', 'code']).json;
+      const r = b.kk(['codex', '--run', o.run, '--role', 'auteur', '--schema', 'livraison', '--ecriture', '--consigne', b.consigne()], { FAUX_SCENARIO: scenario, FAUX_MARQUEUR: marqueur });
+      assert.equal(r.json.statut, 'VIOLATION', JSON.stringify(r.json));
+      assert.equal(b.kk(['diff', '--run', o.run]).json.ok, false);
+      assert.ok(!fs.existsSync(marqueur), 'le script piégé ne doit jamais s\'exécuter');
+    } finally { b.nettoyer(); }
+  });
+}
+
+test('scellés illisibles pendant le tour de Codex, rétablis après', () => {
+  const b = bac();
+  try {
+    const o = b.kk(['ouvrir', '--mode', 'audit']).json;
+    const brouillon = b.json(auditClaude);
+    const s = b.kk(['sceller', '--run', o.run, '--etape', 'audit', '--fichier', brouillon]).json;
+    assert.ok(!fs.existsSync(brouillon), 'le brouillon en clair est supprimé');
+    b.kk(['codex', '--run', o.run, '--role', 'auditeur', '--schema', 'revue', '--consigne', b.consigne()], { FAUX_SCENARIO: 'voit-scelle', FAUX_RUNS: path.join(b.racine, 'home', 'runs') });
+    const traces = fs.readFileSync(path.join(b.racine, 'appels.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).filter((x) => x.argv[0] === 'voit-scelle');
+    assert.equal(traces.length, 1);
+    assert.equal(traces[0].vu, false);
+    assert.match(fs.readFileSync(s.fichier, 'utf8'), /constats/);
+  } finally { b.nettoyer(); }
+});
+
+test('prouver : lecture du dossier personnel refusée hors outils de développement', { skip: macos }, () => {
+  const b = bac();
+  try {
+    const maison = path.join(b.racine, 'maison');
+    fs.mkdirSync(path.join(maison, 'Documents'), { recursive: true });
+    fs.writeFileSync(path.join(maison, 'Documents', 'prive.txt'), 'contenu-prive');
+    const o = b.kk(['ouvrir', '--mode', 'bourreau']).json;
+    const r = b.kk(['prouver', '--run', o.run, '--cmd', 'cat "$HOME/Documents/prive.txt"; cat m.py'], { HOME: maison }).json;
+    assert.doesNotMatch(r.sortie, /contenu-prive/);
+    assert.match(r.sortie, /def moyenne/);
+  } finally { b.nettoyer(); }
+});
+
+test('diff signale les fichiers qui s\'exécutent tout seuls (scripts de paquet, hooks)', () => {
+  const b = bac();
+  try {
+    const o = b.kk(['ouvrir', '--mode', 'code']).json;
+    fs.writeFileSync(path.join(o.copie, 'package.json'), '{"scripts":{"postinstall":"node x.js"}}\n');
+    fs.mkdirSync(path.join(o.copie, '.githooks'));
+    fs.writeFileSync(path.join(o.copie, '.githooks', 'pre-commit'), '#!/bin/sh\n');
+    const d = b.kk(['diff', '--run', o.run]).json;
+    assert.deepEqual(d.sensibles.sort(), ['.githooks/pre-commit', 'package.json']);
+    assert.ok(d.attention);
+  } finally { b.nettoyer(); }
+});
+
 test('lecture des scellés par Codex détectée : VIOLATION', () => {
   const b = bac();
   try {

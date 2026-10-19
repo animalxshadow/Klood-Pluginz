@@ -48,6 +48,24 @@ if (scenario === 'tardif') {
   spawn(process.execPath, ['-e', `setTimeout(()=>require('fs').writeFileSync(${JSON.stringify(path.join(process.cwd(), 'tardif.txt'))},'x'),1500)`], { stdio: 'ignore' }).unref();
   fs.writeFileSync(path.join(process.cwd(), 'nouveau.txt'), 'travail de Codex\n');
 }
+// Faux dépôt git piégé : si KontreKode lançait git dessus sans durcissement, le script s'exécuterait.
+const piege = (dossier) => {
+  const script = path.join(dossier, 'piege.sh');
+  fs.mkdirSync(path.join(dossier, 'refs'), { recursive: true });
+  fs.writeFileSync(script, `#!/bin/sh\necho execute > ${JSON.stringify(process.env.FAUX_MARQUEUR || '/dev/null')}\n`, { mode: 0o755 });
+  fs.writeFileSync(path.join(dossier, 'HEAD'), 'ref: refs/heads/main\n');
+  fs.writeFileSync(path.join(dossier, 'config'), `[core]\n\trepositoryformatversion = 0\n\tfsmonitor = ${script}\n\thooksPath = ${dossier}\n`);
+};
+if (scenario === 'pirate-git') { fs.rmSync(path.join(process.cwd(), '.git'), { force: true }); fs.mkdirSync(path.join(process.cwd(), '.git')); piege(path.join(process.cwd(), '.git')); }
+if (scenario === 'imbrique') { fs.mkdirSync(path.join(process.cwd(), 'sous', '.git'), { recursive: true }); piege(path.join(process.cwd(), 'sous', '.git')); }
+if (scenario === 'gitmodules') fs.writeFileSync(path.join(process.cwd(), '.gitmodules'), '[submodule "x"]\n\tpath = x\n\turl = ../x\n');
+if (scenario === 'voit-scelle' && process.env.FAUX_RUNS) {
+  // Cherche les scellés de Claude comme le ferait un Codex curieux, et consigne ce qu'il a pu lire.
+  let vu = false;
+  const fouiller = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) fouiller(p); else if (e.name.startsWith('scelle-')) { try { if (fs.readFileSync(p, 'utf8').includes('constats')) vu = true; } catch { /* illisible */ } } } };
+  fouiller(process.env.FAUX_RUNS);
+  fs.appendFileSync(process.env.FAUX_LOG, JSON.stringify({ argv: ['voit-scelle'], vu }) + '\n');
+}
 if (scenario === 'disque') {
   process.stderr.write('Error: Disk quota exceeded while writing /x\n');
   process.exit(1);

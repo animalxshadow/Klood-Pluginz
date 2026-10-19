@@ -34,7 +34,7 @@ Les garanties sont tenues **par le moteur**, pas par une consigne qu'un modèle 
   du code non relu, il ne tourne jamais en clair.
 - **Auto-audité avec son propre protocole** : la version 1.0 est passée au mode audit, avec Claude et
   Codex en double aveugle. Les 18 défauts trouvés ont été confirmés des deux côtés, puis 9 autres sont
-  apparus à la contre-vérification des correctifs. Tous sont corrigés et couverts par un test (44 au total).
+  apparus à la contre-vérification des correctifs, puis 3 à la relecture de sécurité automatique. Tous sont corrigés et couverts par un test (53 au total).
 - **Statuts nets** (`OK`, `INVALIDE`, `ECHEC`, `QUOTA`, `DELAI`, `VIOLATION`) et nombre de tours borné.
 - **Journal inviolable** : chaque événement est chaîné par empreinte SHA-256.
 
