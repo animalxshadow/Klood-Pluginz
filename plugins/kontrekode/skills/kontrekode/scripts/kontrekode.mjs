@@ -12,7 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.3.0';
+const VERSION = '1.3.1';
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 const DOSSIER_SCHEMAS = path.join(ICI, '..', 'schemas');
 const HOME = path.resolve(process.env.KONTREKODE_HOME || path.join(os.homedir(), '.kontrekode'));
@@ -34,7 +34,10 @@ const QUOTA = /usage limit|rate.?limit(ed| reached| exceeded)?\b|insufficient_qu
 // Dossiers d'identifiants que les tests exécutés par prouver ne doivent jamais lire.
 // Ils restent interdits même s'ils se trouvent sous un dossier autorisé.
 const SECRETS = ['.codex', '.ssh', '.aws', '.azure', '.gnupg', '.config', '.git-credentials', '.docker', '.kube', '.netrc', '.npmrc',
-  '.pypirc', '.claude', '.claude.json', '.kontrekode/runs', 'Library/Keychains', 'Library/Cookies', 'Library/Application Support'];
+  '.pypirc', '.claude', '.claude.json', '.kontrekode/runs', 'Library/Keychains', 'Library/Cookies', 'Library/Application Support',
+  // Identifiants rangés dans des dossiers d'outils par ailleurs lisibles.
+  '.cargo/credentials', '.cargo/credentials.toml', '.gem/credentials', '.m2/settings.xml', '.m2/settings-security.xml',
+  '.gradle/gradle.properties', '.local/share/keyrings', '.local/share/gnupg', '.pyenv/.pypirc', '.yarnrc', '.yarnrc.yml', '.bunfig.toml'];
 // Seuls dossiers du dossier personnel lisibles par les tests : chaînes d'outils et caches de paquets.
 const OUTILS_LISIBLES = ['.nvm', '.npm', '.node-gyp', '.cache', '.pnpm-store', 'Library/pnpm', '.yarn', '.bun', '.deno', '.volta', '.fnm',
   '.pyenv', '.local', 'Library/Python', 'Library/Caches', '.cargo', '.rustup', 'go', '.gradle', '.m2', '.rbenv', '.gem', '.asdf', '.sdkman', '.swiftpm'];
@@ -117,10 +120,12 @@ function verifierCopie(etat) {
   try { st = fs.lstatSync(f); } catch { throw new Error('VIOLATION : le fichier .git de la copie a disparu. KontreKode refuse d\'y lancer git.'); }
   if (!st.isFile() || fs.readFileSync(f, 'utf8') !== etat.git_fichier) throw new Error('VIOLATION : le fichier .git de la copie a été modifié. KontreKode refuse d\'y lancer git.');
   const imbriques = [];
+  // Échec fermé : un dossier illisible ou une profondeur anormale peuvent cacher un dépôt imbriqué.
   const parcourir = (rel, profondeur) => {
-    if (profondeur > 25 || imbriques.length) return;
+    if (imbriques.length) return;
+    if (profondeur > 40) { imbriques.push(`${rel} (profondeur anormale)`); return; }
     let entrees;
-    try { entrees = fs.readdirSync(path.join(etat.copie, rel), { withFileTypes: true }); } catch { return; }
+    try { entrees = fs.readdirSync(path.join(etat.copie, rel), { withFileTypes: true }); } catch { imbriques.push(`${rel || '.'} (dossier illisible)`); return; }
     for (const e of entrees) {
       const sousRel = path.join(rel, e.name);
       if (rel && (e.name === '.git' || e.name === '.gitmodules')) { imbriques.push(sousRel); return; }
@@ -854,13 +859,19 @@ const sous = (p) => `(subpath ${JSON.stringify(reel(p))})`;
 //   d'origine quand on travaille dans la copie ou en lecture seule (audit, débat).
 function profilBacASable({ ecrivable, lisibles, depot, temporaire, reseauLocal }) {
   const maison = os.homedir();
+  // Dossiers git du dépôt (y compris après intégration, quand les tests tournent dans le dépôt) :
+  // jamais inscriptibles, sinon un test pourrait poser un hook exécuté au prochain commit.
+  const dossiersGit = [path.join(depot, '.git')];
+  const commun = git(depot, ['rev-parse', '--path-format=absolute', '--git-common-dir'], { tolerer: true }).stdout?.trim();
+  if (commun) dossiersGit.push(commun);
   // Lecture du dossier personnel refusée par défaut (contenu des fichiers ; la traversée des chemins
   // reste permise), sauf les outils de développement et les dossiers de travail de la session.
   const outils = OUTILS_LISIBLES.map((s) => path.join(maison, s));
   const permis = String(process.env.KONTREKODE_LECTURE_PERMISE || '').split(',').map((s) => s.trim()).filter((s) => path.isAbsolute(s));
   const lecture = [...outils, ...lisibles, temporaire, ...permis].map(sous).join(' ');
   const secrets = [...SECRETS.map((s) => path.join(maison, s)), RUNS].map(sous).join(' ');
-  const gardes = ecrivable ? [path.join(ecrivable, '.git'), path.join(ecrivable, '.gitmodules')].map((p) => `(literal ${JSON.stringify(path.join(reel(path.dirname(p)), path.basename(p)))})`).join(' ') : '';
+  // .git (fichier ou dossier) et .gitmodules de la copie : aucune écriture, ni dessus ni dessous.
+  const gardes = ecrivable ? [path.join(ecrivable, '.git'), path.join(ecrivable, '.gitmodules')].map((p) => `(subpath ${JSON.stringify(path.join(reel(path.dirname(p)), path.basename(p)))})`).join(' ') : '';
   return `(version 1)
 (allow default)
 (deny network*)
@@ -876,6 +887,7 @@ ${reseauLocal ? '(allow network* (local ip "localhost:*"))\n(allow network* (rem
 (allow file-write* ${sous(temporaire)} (literal "/dev/null") (literal "/dev/zero") (regex #"^/dev/tty") (regex #"^/dev/fd/"))
 (deny file-write* ${sous(depot)})
 ${ecrivable ? `(allow file-write* ${sous(ecrivable)})\n(deny file-write* ${gardes})` : ''}
+(deny file-write* ${dossiersGit.map(sous).join(' ')})
 `;
 }
 
