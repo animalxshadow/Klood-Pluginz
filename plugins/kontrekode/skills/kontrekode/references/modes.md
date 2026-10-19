@@ -236,9 +236,13 @@ après un vrai effort, statut AUCUNE_FAILLE_TROUVEE, et dis ce que tu as couvert
 
 ## Réglages utiles
 
-- `--effort low|medium|high|xhigh` : `low` pour une tâche mécanique, `high` pour un audit de zone sensible.
-  Par défaut, l'effort configuré dans Codex.
-- `--modele` : seulement si la personne le demande ; sinon, le modèle par défaut de son Codex.
+- `--effort low|medium|high|xhigh|max|ultra` : niveau de réflexion de Codex. Plus il est haut, plus le
+  tour est long et consomme de quota. `max` et `ultra` portent le délai par défaut à une heure. Ordre de
+  priorité : `--effort`, puis la variable `KONTREKODE_EFFORT`, puis l'effort configuré dans Codex.
+- `--modele` : même ordre (`--modele`, puis `KONTREKODE_MODEL`, puis le modèle par défaut de Codex). Pour
+  connaître les modèles du compte et leurs niveaux : `codex debug models`.
+- Pour un travail où la justesse prime (audit sensible, paiements, sécurité), demander le modèle en tête du
+  catalogue et le niveau le plus haut qu'il accepte, et le dire à la personne avec le coût en temps.
 - `--delai SECONDES` : 900 par défaut, 3600 au maximum.
 - `--max-tours N` à l'ouverture : 4 par défaut. Plus de tours n'améliore presque jamais le résultat :
   au troisième désaccord sur le même point, c'est à l'humain de trancher.

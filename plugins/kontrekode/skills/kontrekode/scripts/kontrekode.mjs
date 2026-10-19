@@ -12,7 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.3.4';
+const VERSION = '1.3.5';
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 const DOSSIER_SCHEMAS = path.join(ICI, '..', 'schemas');
 const HOME = path.resolve(process.env.KONTREKODE_HOME || path.join(os.homedir(), '.kontrekode'));
@@ -21,7 +21,9 @@ const MODES = ['code', 'audit', 'debat', 'bourreau'];
 const SCHEMAS = ['revue', 'livraison', 'contre_examen', 'debat_ouverture', 'debat_replique', 'bourreau'];
 // Chaque mode n'accepte que ses propres formats : changer de format ne contourne aucun garde-fou.
 const SCHEMAS_PAR_MODE = { code: ['livraison'], audit: ['revue', 'contre_examen'], debat: ['debat_ouverture', 'debat_replique'], bourreau: ['bourreau'] };
-const EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh'];
+// Niveaux de réflexion de Codex : le catalogue du compte peut aller jusqu'à max et ultra.
+const EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
+const EFFORTS_LONGS = ['max', 'ultra'];
 const GRAVES = ['critique', 'haute', 'moyenne'];
 // Fonctions de Codex coupées à chaque appel : elles donneraient à Codex des outils
 // (MCP, applications, plugins, mémoire entre projets) que le bac à sable ne gouverne pas.
@@ -701,7 +703,9 @@ async function cmdCodex(a) {
   const effort = typeof a.effort === 'string' ? a.effort : (process.env.KONTREKODE_EFFORT || cfg.model_reasoning_effort || null);
   if (modele && !/^[A-Za-z0-9][\w.:-]*$/.test(modele)) echec('Nom de modèle invalide.');
   if (effort && !EFFORTS.includes(effort)) echec(`Effort invalide. Valeurs : ${EFFORTS.join(', ')}.`);
-  const delaiMs = Math.min(Number.parseInt(a.delai || '900', 10) || 900, 3600) * 1000;
+  // Les niveaux max et ultra réfléchissent longtemps : délai par défaut d'une heure.
+  const delaiDefaut = EFFORTS_LONGS.includes(effort) ? 3600 : 900;
+  const delaiMs = Math.min(Number.parseInt(a.delai || String(delaiDefaut), 10) || delaiDefaut, 3600) * 1000;
   const session = a['nouvelle-session'] ? null : (etat.sessions[role] || null);
   const attendus = nomSchema === 'livraison' ? (etat.derniers.claude_relecture || [])
     : nomSchema === 'contre_examen' ? (etat.scelles.audit?.ids || []) : [];
