@@ -1,5 +1,5 @@
 ---
-name: kontrekode
+name: "kontrekode"
 description: KontreKode fait travailler Claude et Codex CLI ensemble, par la contradiction et la preuve. Quatre modes. Code (Codex écrit dans une copie isolée, Claude relit, boucle jusqu'à accord ou désaccord tranché par l'humain). Audit double aveugle (chacun audite seul, puis chacun contre-examine l'autre). Débat de décision (deux positions, le nœud du désaccord remonte à l'humain). Bourreau de tests (Codex écrit des tests qui cherchent à casser le code, on juge sur l'exécution). À utiliser quand on demande de faire discuter Claude et Codex, un second avis Codex, un audit croisé, une contre-expertise, de faire coder Codex, un débat d'architecture, ou /kontrekode.
 ---
 

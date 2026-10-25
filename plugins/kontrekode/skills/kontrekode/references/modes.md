@@ -30,6 +30,17 @@ la clarifier d'abord avec la personne : une spécification vague donne une boucl
    `KK codex --run ID --role auteur --schema livraison --ecriture --consigne F`.
 3. `KK diff --run ID`, puis lire **tout** `codex.patch`.
 4. Relancer soi-même les vérifications utiles : `KK prouver --run ID --cmd "{tests}"`.
+   - **Livrable empaqueté** (binaire, application, bundle, image de conteneur) : la copie de Codex n'a
+     pas de réseau, il ne peut pas le construire. Avant de sceller la relecture, Claude construit le
+     livrable réel et l'exécute isolé (réseau coupé, ports de recette), avec une sonde qui charge
+     chaque module dynamique ou optionnel. Une suite verte sous l'interpréteur ne dit rien de ce qui
+     se charge dans le paquet. Un échec de chargement est un constat critique par défaut.
+   - **Migration de base** : avant de sceller la première relecture, relever en lecture seule les
+     contraintes de production des tables touchées (clés étrangères, contraintes CHECK, déclencheurs :
+     catalogue `pg_constraint` et `pg_trigger` sous PostgreSQL) et les comparer à la base de test. Une
+     base reconstruite depuis une archive de schéma rate ce qui n'existe qu'en production. Un écart est
+     un constat haut par défaut ; un « non vérifié » de la relecture sur le schéma de production se
+     mesure tout de suite, pas en fin de parcours.
 5. Relire selon la grille du tour (ci-dessous). Écrire la relecture au format `revue`, puis
    `KK sceller --run ID --etape relecture --fichier relecture.json`.
    - Verdict `APPROUVE` sans constat grave et preuves vertes : aller à l'étape 7.
