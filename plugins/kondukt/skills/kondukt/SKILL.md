@@ -1,5 +1,5 @@
 ---
-name: kondukt
+name: "kondukt"
 description: "Orchestration et choix du modèle pour les tâches en plusieurs étapes dans Claude Code (modifications sur plusieurs fichiers, recherche large, audit, revue de code, débogage, collecte de données, migration) : décider s'il vaut la peine de déléguer à des sous-agents, ce qu'on parallélise, et sur quel modèle chacun tourne (haiku, sonnet, opus, fable) pour réussir du premier coup sans surdimensionner. À utiliser aussi quand l'utilisateur dit déléguer, paralléliser, sous-agents, subagents, choisir le modèle, aller plus vite, gagner du temps, économiser des tokens, ou 'ne fais pas tout toi-même'. Ne pas l'appliquer aux questions simples, aux réponses directes ni aux petites modifications que ton propre modèle sait faire. Use for multi-step tasks, delegation, subagents, parallel work, or model selection by task difficulty."
 ---
 
@@ -116,6 +116,7 @@ Un sous-agent ne fait jamais de commit, de push, de suppression de fichiers (ren
 - L'utilisateur ne voit pas le compte rendu d'un sous-agent : relaie l'essentiel.
 - Avant de transmettre une affirmation importante, contrôle-la (ouvre le fichier cité, relance le test). Plus l'enjeu est élevé, plus tu vérifies.
 - Si deux agents se contredisent, vérifie toi-même, ou relance l'un d'eux avec `SendMessage` en lui montrant la contradiction.
+- **Correctif d'un garde-fou** (bac à sable, isolation, verrou, contrôle d'accès, intégrité) : renvoie le MÊME `verificateur` sur la nouvelle version, de préférence avec `SendMessage` (il garde ses reproductions), avec deux consignes : rejouer chacune de ses reproductions, et chercher les défauts introduits par le correctif lui-même. Boucle jusqu'à une passe sans constat de gravité haute ; ne livre ni ne publie avant. Une suite verte écrite par l'auteur du correctif vérifie le scénario corrigé, pas ses voisins : un correctif de garde-fou laisse souvent le défaut partiellement ouvert, ou en ouvre un nouveau. Brief : [references/briefs.md](references/briefs.md), « Contre-vérification après correctif ».
 
 ## 5. Annoncer le découpage
 
