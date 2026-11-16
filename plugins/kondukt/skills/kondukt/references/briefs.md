@@ -62,6 +62,18 @@ Retour : confirmé ou infirmé, avec la preuve.
 Fin : chaque point est confirmé ou infirmé.
 ```
 
+## Contre-vérification après correctif → le même `verificateur`
+
+Pour un correctif qui touche un garde-fou. Envoyé avec `SendMessage` au vérificateur qui a trouvé les défauts ; sinon, recopie ses constats et ses reproductions dans le brief.
+
+```
+Objectif : vérifier la nouvelle version <chemin ou diff> après correction de tes constats <liste>.
+Contexte : ce qui a été changé pour chaque constat <résumé>, tests ajoutés <liste>.
+Limites : ne modifie rien.
+Retour : pour chaque constat, corrigé, partiel ou ouvert, avec la reproduction rejouée ; puis tout défaut nouveau introduit par les correctifs, avec sa gravité et un scénario concret.
+Fin : toutes les reproductions sont rejouées et le voisinage de chaque correctif est relu.
+```
+
 ## Dernier recours → `expert`
 
 ```
