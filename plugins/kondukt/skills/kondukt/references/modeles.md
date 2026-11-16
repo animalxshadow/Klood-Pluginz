@@ -1,6 +1,6 @@
 # Modèles Claude : guide de choix
 
-**Dernière vérification : 11/11/2026.** Ne change cette date que si tu as réellement consulté les sources officielles listées en bas.
+**Dernière vérification : 12/10/2026.** Ne change cette date que si tu as réellement consulté les sources officielles listées en bas.
 
 ## Vérification à la première délégation (une fois par conversation)
 - Compare les familles proposées par le paramètre `model` de l'outil Agent, et le nom de ton propre modèle, avec le tableau ci-dessous. Ignore `inherit`, `best`, `default`, `opusplan` et les suffixes comme `[1m]`. Pas de recherche web à cette étape.
@@ -15,12 +15,12 @@
 | Haiku | `haiku` | Haiku 5.5 | `claude-haiku-5-5` | à partir de 0,10 $ / 0,50 $ (plus cher au-delà de 100K tokens de prompt, tarif exact non vérifié) | 1M | moyen par défaut | Très rapide |
 | Sonnet | `sonnet` | Sonnet 5.5 | `claude-sonnet-5-5` | 2 $ / 10 $ | jusqu'à 1M | moyen par défaut | Rapide |
 | Opus | `opus` | Opus 5.5 | `claude-opus-5-5` | 4 $ / 20 $ | jusqu'à 1M | moyen par défaut | Plus lent |
-| Fable | `fable` | Fable 5.2 | `claude-fable-5-2` | 8 $ / 40 $ | jusqu'à 1M | moyen par défaut | Lent |
+| Fable | `fable` | Fable 5.1 | `claude-fable-5-1` | 10 $ / 50 $ | jusqu'à 1M | élevé par défaut | Lent |
 
 Niveaux d'effort disponibles sur Haiku, Sonnet, Opus et Fable : low, medium, high, xhigh, max.
 Dans Claude Code, utilise l'alias : il pointe toujours vers la dernière version de la famille.
 
-**Retrait :** Fable 5.2 ne sera pas retiré avant le 09/11/2027 et Haiku 5.5 avant le 07/10/2027 (doc officielle). Haiku 4.5 est passé en modèle ancien (« legacy »), encore disponible. Si `haiku` disparaît sans successeur, utilise `sonnet` à sa place et propose à l'utilisateur de changer `model: haiku` dans eclaireur.md.
+**Retrait :** Haiku 5.5 ne sera pas retiré avant le 07/10/2027 (doc officielle). Haiku 4.5 est passé en modèle ancien (« legacy »), encore disponible. Si `haiku` disparaît sans successeur, utilise `sonnet` à sa place et propose à l'utilisateur de changer `model: haiku` dans eclaireur.md.
 
 ## Profil et bonne utilisation de chaque modèle
 
@@ -30,7 +30,7 @@ Dans Claude Code, utilise l'alias : il pointe toujours vers la dernière version
 
 **Opus 5.5** : raisonnement solide, jugement, travail long. Pour concevoir, déboguer en profondeur, relire de façon critique, et tout ce qui touche au risque. La doc Anthropic recommande d'essayer opus avec plus d'effort avant fable : c'est le rôle de l'architecte et de l'exécutant en `model: "opus"`, déjà en effort élevé. Opus est aussi fait pour le travail agentique long.
 
-**Fable 5.2** : le plus capable. Raisonnement le plus exigeant et très longues missions autonomes. Réflexion toujours active (vérifié sur 5.1, non revérifié sur 5.2), tours longs (plusieurs minutes possibles), 2 fois le prix d'opus. Effort par défaut dans Claude Code : moyen (il était élevé sur 5.1) ; la valeur par défaut de l'API reste élevée. Pour l'exploiter : décris le résultat voulu plutôt que les étapes, confie-lui le problème entier plutôt que découpé, inutile de lui rappeler de vérifier. Selon l'abonnement, il peut être facturé en crédits supplémentaires : Claude Code demande alors l'accord de l'utilisateur. Il peut aussi être indisponible : dans ce cas, reste sur opus.
+**Fable 5.1** : le plus capable. Raisonnement le plus exigeant et très longues missions autonomes. Réflexion toujours active, tours longs (plusieurs minutes possibles), 2,5 fois le prix d'opus. Pour l'exploiter : décris le résultat voulu plutôt que les étapes, confie-lui le problème entier plutôt que découpé, inutile de lui rappeler de vérifier. Selon l'abonnement, il peut être facturé en crédits supplémentaires : Claude Code demande alors l'accord de l'utilisateur. Il peut aussi être indisponible : dans ce cas, reste sur opus.
 
 ## Arbre de décision (dans cet ordre)
 
